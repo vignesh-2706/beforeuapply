@@ -408,8 +408,21 @@
     familiarity plus responsibilities requirements qualifications preferred
     required required must nice apply applicant candidate candidates
     ideal minimum equivalent related field fields degree bachelor bachelors
-    like similar etc please note new build building
+    like similar etc please note new build building seasoned keep check
+    want make perfect impact organisation organization ensure ensuring
+    following agreed upon awareness evaluating identifying enhancements
+    accuracy preparation improve improving independently level high multiple
+    product products self motivation motivated fast-paced self-motivated
+    self-motivation detail-oriented results-driven team-oriented based
+    conversational
   `.split(/\s+/).filter(Boolean));
+
+  // 2-letter tokens are dropped by default (too much noise otherwise),
+  // except these -- real short tech acronyms that show up constantly
+  // in JDs (CI/CD, QA, AI/ML, UI/UX...).
+  const SHORT_ACRONYM_WHITELIST = new Set([
+    "ci", "cd", "qa", "ai", "ml", "ui", "ux", "os", "db", "js", "go", "vm",
+  ]);
 
   // Known tools/languages/frameworks -- always weighted up even if they
   // don't appear often. Not exhaustive; extend this list as you notice
@@ -424,17 +437,26 @@
     scrum kanban microservices oauth jwt tensorflow pytorch pandas
     numpy scikit kafka rabbitmq nginx elasticsearch ios android swift
     kotlin golang go rust php ruby firebase heroku vercel netlify jira
-    figma selenium cypress jest mocha pytest junit ci cd devops
-    kubernetes terraform grpc oop solid ddd tdd bdd
+    figma selenium cypress jest mocha pytest junit testng maven ant
+    sdet devops kubernetes terraform grpc oop solid ddd tdd bdd assured
+    postman jmeter appium cucumber gherkin
   `.split(/\s+/).filter(Boolean));
 
   function tokenize(text) {
     return (text || "")
       .toLowerCase()
-      .replace(/[^a-z0-9+#./\s-]/g, " ")
+      // '/' now splits tokens (not preserved) so "CI/CD" -> "ci","cd" and
+      // "TestNG/JUnit" -> "testng","junit" instead of merging into one
+      // unmatched token. '.', '+', '#', '-' stay so node.js / c++ / c#
+      // survive intact.
+      .replace(/[^a-z0-9+#.\s-]/g, " ")
       .split(/\s+/)
       .map(w => w.trim().replace(/\.+$/, "")) // strip trailing sentence periods, keep internal ones (node.js)
-      .filter(w => w.length > 2 && !STOPWORDS.has(w) && !/^\d+$/.test(w));
+      .filter(w => {
+        if (!w || STOPWORDS.has(w) || /^\d+$/.test(w)) return false;
+        if (w.length <= 2) return SHORT_ACRONYM_WHITELIST.has(w);
+        return true;
+      });
   }
 
   // Acronyms (SDK, API, AWS, JWT...) pulled straight from the original,
@@ -449,6 +471,7 @@
     return (
       TECH_BOOST_TERMS.has(term) ||
       acronyms.has(term) ||
+      SHORT_ACRONYM_WHITELIST.has(term) ||
       /[0-9]/.test(term) ||
       /[./+#]/.test(term)
     );
