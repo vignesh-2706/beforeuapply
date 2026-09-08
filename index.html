@@ -359,14 +359,27 @@
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
   // ============================================================
-  // STOPWORDS + light skill boost list
+  // STOPWORDS + tech-term boosting
   //
-  // This is a v1 keyword-overlap scorer. It is intentionally
-  // simple: tokenize, drop stopwords, count frequency in the
-  // JD, check presence in the resume. Good enough to catch
-  // "does this resume mention what the JD cares about" without
-  // needing a backend or a model. Swap for embeddings later if
-  // wanted -- see the project plan.
+  // v1 was pure frequency: whichever word appeared most in the
+  // JD won a slot in the key-term list, regardless of whether it
+  // was actually meaningful ("understanding", "good",
+  // "communication" all showed up as "missing skills", which is
+  // noise, not signal).
+  //
+  // v2 keeps the same no-backend, no-model approach but adds two
+  // things:
+  //   1. a much bigger filler list -- generic resume/JD language
+  //      (soft-skill nouns, filler verbs, corporate-speak) that
+  //      should never count as a "term to match," no matter how
+  //      often it appears.
+  //   2. a boost multiplier for terms that look technical: known
+  //      tools/languages/frameworks, acronyms (SDK, API, AWS...),
+  //      or tokens containing digits/symbols (c++, node.js, c#).
+  //      Boosted terms outrank frequent-but-generic ones when we
+  //      pick the top N terms AND when we weight the score, so a
+  //      resume missing "webrtc" now hurts the score more than
+  //      one missing "understanding" ever should have.
   // ============================================================
 
   const STOPWORDS = new Set(`
@@ -385,7 +398,34 @@
     who's whom why why's with won't would wouldn't you you'd you'll you're
     you've your yours yourself yourselves will using use used team work
     working role job company experience years strong across including
-    within also etc within must ability able looking seeking join
+    within also etc within must ability able looking seeking join good
+    great excellent solid proven demonstrated passion passionate detail
+    oriented environment environments fast paced growth opportunity
+    opportunities help helping collaborate collaboration collaborative
+    communicate communication communications understanding understand
+    learn learning learned write written writing concept concepts feature
+    features maintain maintaining maintained maintainable knowledge familiar
+    familiarity plus responsibilities requirements qualifications preferred
+    required required must nice apply applicant candidate candidates
+    ideal minimum equivalent related field fields degree bachelor bachelors
+    like similar etc please note new build building
+  `.split(/\s+/).filter(Boolean));
+
+  // Known tools/languages/frameworks -- always weighted up even if they
+  // don't appear often. Not exhaustive; extend this list as you notice
+  // real JDs surfacing tech terms it misses.
+  const TECH_BOOST_TERMS = new Set(`
+    python java javascript typescript react reactjs angular vue vuejs
+    node nodejs express django flask spring rails laravel dotnet aws
+    azure gcp docker kubernetes terraform ansible jenkins git github
+    gitlab bitbucket sql postgresql postgres mysql mongodb redis
+    graphql rest restful grpc websocket webrtc sdk sdks api apis html
+    css sass scss less webpack babel vite linux unix bash shell agile
+    scrum kanban microservices oauth jwt tensorflow pytorch pandas
+    numpy scikit kafka rabbitmq nginx elasticsearch ios android swift
+    kotlin golang go rust php ruby firebase heroku vercel netlify jira
+    figma selenium cypress jest mocha pytest junit ci cd devops
+    kubernetes terraform grpc oop solid ddd tdd bdd
   `.split(/\s+/).filter(Boolean));
 
   function tokenize(text) {
@@ -393,19 +433,45 @@
       .toLowerCase()
       .replace(/[^a-z0-9+#./\s-]/g, " ")
       .split(/\s+/)
-      .map(w => w.trim())
+      .map(w => w.trim().replace(/\.+$/, "")) // strip trailing sentence periods, keep internal ones (node.js)
       .filter(w => w.length > 2 && !STOPWORDS.has(w) && !/^\d+$/.test(w));
+  }
+
+  // Acronyms (SDK, API, AWS, JWT...) pulled straight from the original,
+  // un-lowercased JD text -- a real signal that a term is a proper
+  // noun/technology, not a common English word.
+  function findAcronyms(rawText) {
+    const matches = (rawText || "").match(/\b[A-Z]{2,6}\b/g) || [];
+    return new Set(matches.map(m => m.toLowerCase()));
+  }
+
+  function isBoosted(term, acronyms) {
+    return (
+      TECH_BOOST_TERMS.has(term) ||
+      acronyms.has(term) ||
+      /[0-9]/.test(term) ||
+      /[./+#]/.test(term)
+    );
   }
 
   function extractKeyTerms(jdText, maxTerms = 24) {
     const tokens = tokenize(jdText);
+    const acronyms = findAcronyms(jdText);
+
     const freq = new Map();
     for (const t of tokens) {
       freq.set(t, (freq.get(t) || 0) + 1);
     }
-    return [...freq.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, maxTerms);
+
+    const weighted = [...freq.entries()].map(([term, count]) => {
+      const boosted = isBoosted(term, acronyms);
+      const weight = count * (boosted ? 2.5 : 1);
+      return { term, count, weight };
+    });
+
+    weighted.sort((a, b) => b.weight - a.weight);
+
+    return weighted.slice(0, maxTerms);
   }
 
   function scoreResume(resumeText, jdText) {
@@ -421,13 +487,13 @@
     let matchedWeight = 0;
     let totalWeight = 0;
 
-    for (const [term, freq] of keyTerms) {
-      totalWeight += freq;
+    for (const { term, count, weight } of keyTerms) {
+      totalWeight += weight;
       if (resumeTokens.has(term)) {
-        matched.push([term, freq]);
-        matchedWeight += freq;
+        matched.push([term, count]);
+        matchedWeight += weight;
       } else {
-        missing.push([term, freq]);
+        missing.push([term, count]);
       }
     }
 
