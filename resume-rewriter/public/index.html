@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>beforeuapply — resume match check</title>
+<style>
+  :root {
+    --paper: #f6f3ec;
+    --paper-line: #d9d2c2;
+    --ink: #23241f;
+    --ink-soft: #5c5a4f;
+    --stamp: #8a3b2b;
+    --stamp-soft: #c9704f;
+    --pass: #3c6e47;
+    --pass-bg: #e6ede4;
+    --fail-bg: #f3e6e0;
+    --mono: 'Courier New', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    background-image: repeating-linear-gradient(transparent, transparent 27px, var(--paper-line) 28px);
+    color: var(--ink);
+    font-family: var(--serif);
+    line-height: 1.5;
+    padding: 0 0 80px;
+  }
+
+  header {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 24px 24px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  header .kicker {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--stamp);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-size: 36px;
+    margin: 0 0 8px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  header p {
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0;
+    font-size: 15px;
+  }
+
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 24px 0;
+  }
+
+  .sheet {
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid var(--paper-line);
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  }
+
+  .panes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 720px) {
+    .panes { grid-template-columns: 1fr; }
+  }
+
+  .pane label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .pane textarea {
+    width: 100%;
+    min-height: 240px;
+    resize: vertical;
+    background: #fffdf8;
+    border: 1px solid var(--paper-line);
+    padding: 14px;
+    font-family: var(--serif);
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.6;
+  }
+
+  .pane textarea:focus {
+    outline: 2px solid var(--stamp-soft);
+    outline-offset: -1px;
+  }
+
+  .file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .file-row input[type="file"] {
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .file-status {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  .score-block {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+
+  .dial {
+    position: relative;
+    width: 128px;
+    height: 128px;
+    flex: none;
+  }
+
+  .dial svg { transform: rotate(-90deg); }
+
+  .dial-number {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  .score-detail { flex: 1; min-width: 220px; }
+
+  .score-source {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+
+  .score-detail .verdict {
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 6px 12px;
+    display: inline-block;
+    margin-bottom: 12px;
+    border: 1px solid currentColor;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .verdict.pass { color: var(--pass); background: var(--pass-bg); }
+  .verdict.fail { color: var(--stamp); background: var(--fail-bg); }
+
+  .threshold-row {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .threshold-row input {
+    width: 56px;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 3px 6px;
+    border: 1px solid var(--paper-line);
+    background: #fffdf8;
+  }
+
+  .terms {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 720px) {
+    .terms { grid-template-columns: 1fr; }
+  }
+
+  .term-list h3 {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: normal;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    margin: 0 0 10px;
+  }
+
+  .term-list ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .term-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dotted var(--paper-line);
+    font-size: 14px;
+  }
+
+  .term-list li .count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  .term-list.matched li { color: var(--pass); }
+  .term-list.missing li { color: var(--stamp); }
+
+  .empty-note {
+    font-size: 13px;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
+  .customize-row {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--paper-line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  button.customize {
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 12px 24px;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  button.customize:hover:not(:disabled) {
+    background: var(--stamp);
+  }
+
+  button.customize:disabled {
+    background: var(--paper-line);
+    color: var(--ink-soft);
+    cursor: not-allowed;
+  }
+
+  .stage-note {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    max-width: 44ch;
+  }
+
+  /* Modal Overlay Styling */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(35, 36, 31, 0.75);
+    backdrop-filter: blur(2px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-overlay.open {
+    display: flex;
+  }
+
+  .modal {
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  }
+
+  .modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--paper-line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-family: var(--mono);
+    color: var(--stamp);
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    font-family: var(--mono);
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+
+  .modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .ai-score-row {
+    display: none;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--paper-line);
+    background: #fffdf8;
+  }
+
+  .ai-score-row .ai-score-num {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--stamp);
+  }
+
+  .ai-score-row .ai-score-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  .ai-missing-row {
+    display: none;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+
+  .modal-body textarea {
+    width: 100%;
+    height: 320px;
+    font-family: var(--mono);
+    font-size: 13px;
+    background: #fffdf8;
+    border: 1px solid var(--paper-line);
+    padding: 12px;
+    line-height: 1.5;
+  }
+
+  .modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--paper-line);
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+
+  .btn-sec {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .btn-pri {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 16px;
+    background: var(--stamp);
+    border: 1px solid var(--stamp);
+    color: var(--paper);
+    cursor: pointer;
+  }
+
+  .loading-spinner {
+    display: none;
+    text-align: center;
+    padding: 40px 0;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--stamp);
+  }
+
+  footer {
+    max-width: 960px;
+    margin: 40px auto 0;
+    padding: 0 24px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="kicker">beforeuapply — resume optimizer</div>
+  <h1>Does your resume actually match this posting?</h1>
+  <p>Paste a job description and drop in your resume. The dial gives you an instant free estimate as you type. When you're ready, one click gets a real AI judgment call plus a tailored rewrite — in a single request, to keep this free for all of us.</p>
+</header>
+
+<main>
+
+  <section class="sheet">
+    <div class="panes">
+      <div class="pane">
+        <label for="resumeInput">Your resume (Text or LaTeX)</label>
+        <div class="file-row">
+          <input type="file" id="resumeFile" accept=".pdf,.tex,.txt" />
+          <span class="file-status" id="fileStatus">or paste source directly</span>
+        </div>
+        <textarea id="resumeInput" placeholder="Paste your resume text or LaTeX source code here, or upload a PDF above..."></textarea>
+      </div>
+      <div class="pane">
+        <label for="jdInput">Job description</label>
+        <div class="file-row">
+          <span class="file-status">paste target job posting</span>
+        </div>
+        <textarea id="jdInput" placeholder="Paste the job description here..."></textarea>
+      </div>
+    </div>
+  </section>
+
+  <section class="sheet">
+    <div class="score-block">
+      <div class="dial">
+        <svg width="128" height="128" viewBox="0 0 128 128">
+          <circle cx="64" cy="64" r="56" fill="none" stroke="#e3ddca" stroke-width="10"/>
+          <circle id="dialArc" cx="64" cy="64" r="56" fill="none" stroke="#8a3b2b" stroke-width="10"
+                  stroke-dasharray="351.86" stroke-dashoffset="351.86" stroke-linecap="round"/>
+        </svg>
+        <div class="dial-number" id="scoreNumber">—</div>
+      </div>
+      <div class="score-detail">
+        <div class="score-source">instant estimate · free, local, updates as you type</div>
+        <div class="verdict fail" id="verdict">waiting for input</div>
+        <div class="threshold-row">
+          <label for="thresholdInput">target match threshold</label>
+          <input type="number" id="thresholdInput" value="80" min="0" max="100" />
+          <span>%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="terms">
+      <div class="term-list matched">
+        <h3>matched terms</h3>
+        <ul id="matchedList"><li class="empty-note">nothing yet</li></ul>
+      </div>
+      <div class="term-list missing">
+        <h3>missing from your resume</h3>
+        <ul id="missingList"><li class="empty-note">nothing yet</li></ul>
+      </div>
+    </div>
+
+    <div class="customize-row">
+      <button class="customize" id="customizeBtn" disabled>AI check &amp; customize →</button>
+      <div class="stage-note">One request: sends your resume + JD to a free Cloudflare Workers AI model, which returns a real match score, a missing-skill list, and a rewritten LaTeX resume together — no separate calls, so it goes easy on our shared free quota.</div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Output Modal -->
+<div class="modal-overlay" id="customModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>AI Match Report</h2>
+      <button class="modal-close" id="closeModalBtn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="modalLoading" class="loading-spinner">
+        ⚡ Asking the model for a real match score and rewriting bullets...
+      </div>
+      <div class="ai-score-row" id="aiScoreRow">
+        <div class="ai-score-num" id="aiScoreNum">—</div>
+        <div>
+          <div class="ai-score-label">AI-judged match score</div>
+        </div>
+      </div>
+      <div class="ai-missing-row" id="aiMissingRow"></div>
+      <textarea id="revisedLatexOutput" style="display:none;" readonly></textarea>
+    </div>
+    <div class="modal-footer" id="modalFooter" style="display:none;">
+      <button class="btn-sec" id="copyBtn">Copy LaTeX</button>
+      <button class="btn-pri" id="downloadBtn">Download .tex File</button>
+    </div>
+  </div>
+</div>
+
+<footer>beforeuapply · instant score runs locally in your browser, free and unlimited · AI check &amp; rewrite powered by Cloudflare Workers AI (shared free tier — use it when you mean it)</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+  // ============================================================
+  // Your actual Cloudflare Worker URL. This is what POST requests
+  // go to -- NOT GitHub Pages. GitHub Pages only serves static
+  // files (this HTML/CSS/JS); it has no server and cannot receive
+  // POST requests at all. The browser loads this page from GitHub
+  // Pages, then this JS makes a separate cross-origin call to the
+  // Worker below.
+  // ============================================================
+  const WORKER_URL = "https://resume-rewriter.vignesh270600.workers.dev";
+
+  const STOPWORDS = new Set(`
+    a about above after again against all am an and any are aren't as at be
+    because been before being below between both but by can't cannot could
+    couldn't did didn't do does doesn't doing don't down during each few for
+    from further had hadn't has hasn't have haven't having he he'd he'll
+    he's her here here's hers herself him himself his how how's i i'd i'll
+    i'm i've if in into is isn't it it's its itself let's me more most
+    mustn't my myself no nor not of off on once only or other ought our
+    ours ourselves out over own same shan't she she'd she'll she's should
+    shouldn't so some such than that that's the their theirs them themselves
+    then there there's these they they'd they'll they're they've this those
+    through to too under until up very was wasn't we we'd we'll we're we've
+    were weren't what what's when when's where where's which while who
+    who's whom why why's with won't would wouldn't you you'd you'll you're
+    you've your yours yourself yourselves will using use used team work
+    working role job company experience years strong across including
+    within also etc within must ability able looking seeking join good
+    great excellent solid proven demonstrated passion passionate detail
+    oriented environment environments fast paced growth opportunity
+    opportunities help helping collaborate collaboration collaborative
+    communicate communication communications understanding understand
+    learn learning learned write written writing concept concepts feature
+    features maintain maintaining maintained maintainable knowledge familiar
+    familiarity plus responsibilities requirements qualifications preferred
+    required required must nice apply applicant candidate candidates
+    ideal minimum equivalent related field fields degree bachelor bachelors
+    like similar etc please note new build building seasoned keep check
+    want make perfect impact organisation organization ensure ensuring
+    following agreed upon awareness evaluating identifying enhancements
+    accuracy preparation improve improving independently level high multiple
+    product products self motivation motivated fast-paced self-motivated
+    self-motivation detail-oriented results-driven team-oriented based
+    conversational
+  `.split(/\s+/).filter(Boolean));
+
+  const SHORT_ACRONYM_WHITELIST = new Set([
+    "ci", "cd", "qa", "ai", "ml", "ui", "ux", "os", "db", "js", "go", "vm",
+  ]);
+
+  const TECH_BOOST_TERMS = new Set(`
+    python java javascript typescript react reactjs angular vue vuejs
+    node nodejs express django flask spring rails laravel dotnet aws
+    azure gcp docker kubernetes terraform ansible jenkins git github
+    gitlab bitbucket sql postgresql postgres mysql mongodb redis
+    graphql rest restful grpc websocket webrtc sdk sdks api apis html
+    css sass scss less webpack babel vite linux unix bash shell agile
+    scrum kanban microservices oauth jwt tensorflow pytorch pandas
+    numpy scikit kafka rabbitmq nginx elasticsearch ios android swift
+    kotlin golang go rust php ruby firebase heroku vercel netlify jira
+    figma selenium cypress jest mocha pytest junit testng maven ant
+    sdet devops kubernetes terraform grpc oop solid ddd tdd bdd assured
+    postman jmeter appium cucumber gherkin
+  `.split(/\s+/).filter(Boolean));
+
+  function tokenize(text) {
+    return (text || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9+#.\s-]/g, " ")
+      .split(/\s+/)
+      .map(w => w.trim().replace(/\.+$/, ""))
+      .filter(w => {
+        if (!w || STOPWORDS.has(w) || /^\d+$/.test(w)) return false;
+        if (w.length <= 2) return SHORT_ACRONYM_WHITELIST.has(w);
+        return true;
+      });
+  }
+
+  function findAcronyms(rawText) {
+    const matches = (rawText || "").match(/\b[A-Z]{2,6}\b/g) || [];
+    return new Set(matches.map(m => m.toLowerCase()));
+  }
+
+  function isBoosted(term, acronyms) {
+    return (
+      TECH_BOOST_TERMS.has(term) ||
+      acronyms.has(term) ||
+      SHORT_ACRONYM_WHITELIST.has(term) ||
+      /[0-9]/.test(term) ||
+      /[./+#]/.test(term)
+    );
+  }
+
+  function extractKeyTerms(jdText, maxTerms = 24) {
+    const tokens = tokenize(jdText);
+    const acronyms = findAcronyms(jdText);
+
+    const freq = new Map();
+    for (const t of tokens) {
+      freq.set(t, (freq.get(t) || 0) + 1);
+    }
+
+    const weighted = [...freq.entries()].map(([term, count]) => {
+      const boosted = isBoosted(term, acronyms);
+      const weight = count * (boosted ? 2.5 : 1);
+      return { term, count, weight };
+    });
+
+    weighted.sort((a, b) => b.weight - a.weight);
+
+    return weighted.slice(0, maxTerms);
+  }
+
+  function scoreResume(resumeText, jdText) {
+    const keyTerms = extractKeyTerms(jdText);
+    if (keyTerms.length === 0) {
+      return { score: 0, matched: [], missing: [], keyTerms: [] };
+    }
+
+    const resumeTokens = new Set(tokenize(resumeText));
+
+    const matched = [];
+    const missing = [];
+    let matchedWeight = 0;
+    let totalWeight = 0;
+
+    for (const { term, count, weight } of keyTerms) {
+      totalWeight += weight;
+      if (resumeTokens.has(term)) {
+        matched.push([term, count]);
+        matchedWeight += weight;
+      } else {
+        missing.push([term, count]);
+      }
+    }
+
+    const score = totalWeight === 0 ? 0 : Math.round((matchedWeight / totalWeight) * 100);
+    return { score, matched, missing, keyTerms };
+  }
+
+  // ============================================================
+  // UI wiring
+  // ============================================================
+
+  const resumeInput = document.getElementById('resumeInput');
+  const jdInput = document.getElementById('jdInput');
+  const resumeFile = document.getElementById('resumeFile');
+  const fileStatus = document.getElementById('fileStatus');
+  const scoreNumber = document.getElementById('scoreNumber');
+  const dialArc = document.getElementById('dialArc');
+  const verdict = document.getElementById('verdict');
+  const thresholdInput = document.getElementById('thresholdInput');
+  const matchedList = document.getElementById('matchedList');
+  const missingList = document.getElementById('missingList');
+  const customizeBtn = document.getElementById('customizeBtn');
+
+  // Modal elements
+  const customModal = document.getElementById('customModal');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+  const modalLoading = document.getElementById('modalLoading');
+  const aiScoreRow = document.getElementById('aiScoreRow');
+  const aiScoreNum = document.getElementById('aiScoreNum');
+  const aiMissingRow = document.getElementById('aiMissingRow');
+  const revisedLatexOutput = document.getElementById('revisedLatexOutput');
+  const modalFooter = document.getElementById('modalFooter');
+  const copyBtn = document.getElementById('copyBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  const CIRCUMFERENCE = 2 * Math.PI * 56;
+  let currentMissingTerms = [];
+
+  // Guards against burning free-tier quota on an unchanged input --
+  // if you click the AI button twice on the exact same resume+JD,
+  // the second click reuses the last result instead of calling the
+  // Worker again.
+  let lastAiCallSignature = null;
+  let lastAiResult = null;
+
+  function renderList(el, items) {
+    if (items.length === 0) {
+      el.innerHTML = '<li class="empty-note">none</li>';
+      return;
+    }
+    el.innerHTML = items
+      .map(([term, freq]) => `<li><span>${term}</span><span class="count">×${freq}</span></li>`)
+      .join('');
+  }
+
+  function recompute() {
+    const resumeText = resumeInput.value;
+    const jdText = jdInput.value;
+    const threshold = Number(thresholdInput.value) || 0;
+
+    if (!resumeText.trim() || !jdText.trim()) {
+      scoreNumber.textContent = '—';
+      dialArc.style.strokeDashoffset = CIRCUMFERENCE;
+      verdict.textContent = 'waiting for input';
+      verdict.className = 'verdict fail';
+      renderList(matchedList, []);
+      renderList(missingList, []);
+      customizeBtn.disabled = true;
+      currentMissingTerms = [];
+      return;
+    }
+
+    const { score, matched, missing } = scoreResume(resumeText, jdText);
+
+    scoreNumber.textContent = score + '%';
+    const offset = CIRCUMFERENCE - (CIRCUMFERENCE * score) / 100;
+    dialArc.style.strokeDashoffset = offset;
+    dialArc.style.stroke = score >= threshold ? '#3c6e47' : '#8a3b2b';
+
+    currentMissingTerms = missing.map(([term]) => term);
+
+    if (score >= threshold) {
+      verdict.textContent = `meets your ${threshold}% target (instant estimate)`;
+      verdict.className = 'verdict pass';
+    } else {
+      verdict.textContent = `below your ${threshold}% target (instant estimate)`;
+      verdict.className = 'verdict fail';
+    }
+    customizeBtn.disabled = false;
+
+    renderList(matchedList, matched);
+    renderList(missingList, missing);
+  }
+
+  let debounceTimer;
+  function debouncedRecompute() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(recompute, 300);
+  }
+
+  resumeInput.addEventListener('input', debouncedRecompute);
+  jdInput.addEventListener('input', debouncedRecompute);
+  thresholdInput.addEventListener('input', debouncedRecompute);
+
+  resumeFile.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    fileStatus.textContent = 'reading ' + file.name + '...';
+
+    if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+      const buffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        fullText += content.items.map(item => item.str).join(' ') + '\n';
+      }
+      resumeInput.value = fullText.trim();
+    } else {
+      resumeInput.value = await file.text();
+    }
+
+    fileStatus.textContent = file.name + ' loaded';
+    recompute();
+  });
+
+  // Modal actions
+  closeModalBtn.addEventListener('click', () => {
+    customModal.classList.remove('open');
+  });
+
+  function renderAiResult(result) {
+    modalLoading.style.display = 'none';
+
+    if (typeof result.score === 'number') {
+      aiScoreRow.style.display = 'flex';
+      aiScoreNum.textContent = result.score + '%';
+    }
+
+    if (Array.isArray(result.missingSkills) && result.missingSkills.length) {
+      aiMissingRow.style.display = 'block';
+      aiMissingRow.textContent = 'AI-flagged gaps: ' + result.missingSkills.join(', ');
+    }
+
+    revisedLatexOutput.value = result.revisedLatex || '';
+    revisedLatexOutput.style.display = 'block';
+    modalFooter.style.display = 'flex';
+  }
+
+  customizeBtn.addEventListener('click', async () => {
+    const signature = resumeInput.value + '||' + jdInput.value;
+
+    customModal.classList.add('open');
+    aiScoreRow.style.display = 'none';
+    aiMissingRow.style.display = 'none';
+    revisedLatexOutput.style.display = 'none';
+    modalFooter.style.display = 'none';
+
+    // Reuse the last result instead of spending another call on
+    // identical input -- protects the shared free-tier quota.
+    if (signature === lastAiCallSignature && lastAiResult) {
+      renderAiResult(lastAiResult);
+      return;
+    }
+
+    modalLoading.style.display = 'block';
+
+    try {
+      const response = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          latex: resumeInput.value,
+          jobDescription: jdInput.value,
+          missingTerms: currentMissingTerms
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.revisedLatex) {
+        lastAiCallSignature = signature;
+        lastAiResult = data;
+        renderAiResult(data);
+      } else {
+        alert('API Error: ' + (data.details || data.error || 'Failed to get a response'));
+        customModal.classList.remove('open');
+      }
+    } catch (err) {
+      alert('Failed to connect to the Worker: ' + err.message);
+      customModal.classList.remove('open');
+    }
+  });
+
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(revisedLatexOutput.value);
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => { copyBtn.textContent = 'Copy LaTeX'; }, 2000);
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const blob = new Blob([revisedLatexOutput.value], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'revised_resume.tex';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+</script>
+
+</body>
+</html>
