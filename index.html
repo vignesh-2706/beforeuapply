@@ -5,11 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>beforeuapply — resume match check</title>
 <style>
-  @font-face {
-    font-family: 'system-serif';
-    src: local('Georgia');
-  }
-
   :root {
     --paper: #f6f3ec;
     --paper-line: #d9d2c2;
@@ -29,8 +24,7 @@
   body {
     margin: 0;
     background: var(--paper);
-    background-image:
-      repeating-linear-gradient(transparent, transparent 27px, var(--paper-line) 28px);
+    background-image: repeating-linear-gradient(transparent, transparent 27px, var(--paper-line) 28px);
     color: var(--ink);
     font-family: var(--serif);
     line-height: 1.5;
@@ -38,9 +32,9 @@
   }
 
   header {
-    max-width: 900px;
+    max-width: 960px;
     margin: 0 auto;
-    padding: 56px 24px 28px;
+    padding: 48px 24px 24px;
     border-bottom: 2px solid var(--ink);
   }
 
@@ -48,12 +42,13 @@
     font-family: var(--mono);
     font-size: 12px;
     color: var(--stamp);
-    letter-spacing: 0.02em;
-    margin-bottom: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
   }
 
   h1 {
-    font-size: 34px;
+    font-size: 36px;
     margin: 0 0 8px;
     font-weight: 400;
     letter-spacing: -0.01em;
@@ -61,22 +56,23 @@
 
   header p {
     color: var(--ink-soft);
-    max-width: 56ch;
+    max-width: 60ch;
     margin: 0;
     font-size: 15px;
   }
 
   main {
-    max-width: 900px;
+    max-width: 960px;
     margin: 0 auto;
     padding: 32px 24px 0;
   }
 
   .sheet {
-    background: rgba(255,255,255,0.55);
+    background: rgba(255, 255, 255, 0.65);
     border: 1px solid var(--paper-line);
     padding: 24px;
     margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
   }
 
   .panes {
@@ -94,19 +90,21 @@
     font-family: var(--mono);
     font-size: 12px;
     color: var(--ink-soft);
+    text-transform: uppercase;
     margin-bottom: 8px;
   }
 
   .pane textarea {
     width: 100%;
-    min-height: 220px;
+    min-height: 240px;
     resize: vertical;
     background: #fffdf8;
     border: 1px solid var(--paper-line);
-    padding: 12px;
+    padding: 14px;
     font-family: var(--serif);
     font-size: 14px;
     color: var(--ink);
+    line-height: 1.6;
   }
 
   .pane textarea:focus {
@@ -135,7 +133,7 @@
   .score-block {
     display: flex;
     align-items: center;
-    gap: 28px;
+    gap: 32px;
     flex-wrap: wrap;
   }
 
@@ -155,18 +153,30 @@
     align-items: center;
     justify-content: center;
     font-family: var(--mono);
-    font-size: 26px;
+    font-size: 28px;
+    font-weight: bold;
   }
 
   .score-detail { flex: 1; min-width: 220px; }
 
+  .score-source {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+
   .score-detail .verdict {
     font-family: var(--mono);
     font-size: 13px;
-    padding: 6px 10px;
+    padding: 6px 12px;
     display: inline-block;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     border: 1px solid currentColor;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
   }
 
   .verdict.pass { color: var(--pass); background: var(--pass-bg); }
@@ -185,13 +195,13 @@
     width: 56px;
     font-family: var(--mono);
     font-size: 12px;
-    padding: 2px 6px;
+    padding: 3px 6px;
     border: 1px solid var(--paper-line);
     background: #fffdf8;
   }
 
   .terms {
-    margin-top: 20px;
+    margin-top: 24px;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
@@ -206,6 +216,7 @@
     font-size: 12px;
     font-weight: normal;
     color: var(--ink-soft);
+    text-transform: uppercase;
     margin: 0 0 10px;
   }
 
@@ -218,7 +229,7 @@
   .term-list li {
     display: flex;
     justify-content: space-between;
-    padding: 5px 0;
+    padding: 6px 0;
     border-bottom: 1px dotted var(--paper-line);
     font-size: 14px;
   }
@@ -239,8 +250,8 @@
   }
 
   .customize-row {
-    margin-top: 22px;
-    padding-top: 18px;
+    margin-top: 24px;
+    padding-top: 20px;
     border-top: 1px solid var(--paper-line);
     display: flex;
     align-items: center;
@@ -252,11 +263,16 @@
   button.customize {
     font-family: var(--mono);
     font-size: 13px;
-    padding: 10px 18px;
+    padding: 12px 24px;
     background: var(--ink);
     color: var(--paper);
     border: none;
     cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  button.customize:hover:not(:disabled) {
+    background: var(--stamp);
   }
 
   button.customize:disabled {
@@ -269,11 +285,149 @@
     font-family: var(--mono);
     font-size: 11px;
     color: var(--ink-soft);
-    max-width: 40ch;
+    max-width: 44ch;
+  }
+
+  /* Modal Overlay Styling */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(35, 36, 31, 0.75);
+    backdrop-filter: blur(2px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-overlay.open {
+    display: flex;
+  }
+
+  .modal {
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  }
+
+  .modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--paper-line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-family: var(--mono);
+    color: var(--stamp);
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    font-family: var(--mono);
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+
+  .modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .ai-score-row {
+    display: none;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--paper-line);
+    background: #fffdf8;
+  }
+
+  .ai-score-row .ai-score-num {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--stamp);
+  }
+
+  .ai-score-row .ai-score-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  .ai-missing-row {
+    display: none;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+
+  .modal-body textarea {
+    width: 100%;
+    height: 320px;
+    font-family: var(--mono);
+    font-size: 13px;
+    background: #fffdf8;
+    border: 1px solid var(--paper-line);
+    padding: 12px;
+    line-height: 1.5;
+  }
+
+  .modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--paper-line);
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+
+  .btn-sec {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .btn-pri {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 16px;
+    background: var(--stamp);
+    border: 1px solid var(--stamp);
+    color: var(--paper);
+    cursor: pointer;
+  }
+
+  .loading-spinner {
+    display: none;
+    text-align: center;
+    padding: 40px 0;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--stamp);
   }
 
   footer {
-    max-width: 900px;
+    max-width: 960px;
     margin: 40px auto 0;
     padding: 0 24px;
     font-family: var(--mono);
@@ -285,9 +439,9 @@
 <body>
 
 <header>
-  <div class="kicker">beforeuapply — stage 1</div>
+  <div class="kicker">beforeuapply — resume optimizer</div>
   <h1>Does your resume actually match this posting?</h1>
-  <p>Paste a job description and drop in your resume. The score updates as you edit either side — nothing leaves your browser at this stage.</p>
+  <p>Paste a job description and drop in your resume. The dial gives you an instant free estimate as you type. When you're ready, one click gets a real AI judgment call plus a tailored rewrite — in a single request, to keep this free for all of us.</p>
 </header>
 
 <main>
@@ -295,17 +449,17 @@
   <section class="sheet">
     <div class="panes">
       <div class="pane">
-        <label for="resumeInput">Your resume</label>
+        <label for="resumeInput">Your resume (Text or LaTeX)</label>
         <div class="file-row">
           <input type="file" id="resumeFile" accept=".pdf,.tex,.txt" />
-          <span class="file-status" id="fileStatus">or paste text below</span>
+          <span class="file-status" id="fileStatus">or paste source directly</span>
         </div>
-        <textarea id="resumeInput" placeholder="Paste your resume text or LaTeX source here, or upload a PDF above..."></textarea>
+        <textarea id="resumeInput" placeholder="Paste your resume text or LaTeX source code here, or upload a PDF above..."></textarea>
       </div>
       <div class="pane">
         <label for="jdInput">Job description</label>
         <div class="file-row">
-          <span class="file-status">paste the full posting</span>
+          <span class="file-status">paste target job posting</span>
         </div>
         <textarea id="jdInput" placeholder="Paste the job description here..."></textarea>
       </div>
@@ -323,9 +477,10 @@
         <div class="dial-number" id="scoreNumber">—</div>
       </div>
       <div class="score-detail">
+        <div class="score-source">instant estimate · free, local, updates as you type</div>
         <div class="verdict fail" id="verdict">waiting for input</div>
         <div class="threshold-row">
-          <label for="thresholdInput">target score</label>
+          <label for="thresholdInput">target match threshold</label>
           <input type="number" id="thresholdInput" value="80" min="0" max="100" />
           <span>%</span>
         </div>
@@ -344,14 +499,41 @@
     </div>
 
     <div class="customize-row">
-      <button class="customize" id="customizeBtn" disabled>customize resume →</button>
-      <div class="stage-note">stage 4: sends resume + JD + gap list to an LLM to rewrite bullets. not wired up yet — needs the Cloudflare Worker.</div>
+      <button class="customize" id="customizeBtn" disabled>AI check &amp; customize →</button>
+      <div class="stage-note">One request: sends your resume + JD to a free Cloudflare Workers AI model, which returns a real match score, a missing-skill list, and a rewritten LaTeX resume together — no separate calls, so it goes easy on our shared free quota.</div>
     </div>
   </section>
 
 </main>
 
-<footer>beforeuapply · scoring runs entirely in your browser · v0.1</footer>
+<!-- Output Modal -->
+<div class="modal-overlay" id="customModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>AI Match Report</h2>
+      <button class="modal-close" id="closeModalBtn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="modalLoading" class="loading-spinner">
+        ⚡ Asking the model for a real match score and rewriting bullets...
+      </div>
+      <div class="ai-score-row" id="aiScoreRow">
+        <div class="ai-score-num" id="aiScoreNum">—</div>
+        <div>
+          <div class="ai-score-label">AI-judged match score</div>
+        </div>
+      </div>
+      <div class="ai-missing-row" id="aiMissingRow"></div>
+      <textarea id="revisedLatexOutput" style="display:none;" readonly></textarea>
+    </div>
+    <div class="modal-footer" id="modalFooter" style="display:none;">
+      <button class="btn-sec" id="copyBtn">Copy LaTeX</button>
+      <button class="btn-pri" id="downloadBtn">Download .tex File</button>
+    </div>
+  </div>
+</div>
+
+<footer>beforeuapply · instant score runs locally in your browser, free and unlimited · AI check &amp; rewrite powered by Cloudflare Workers AI (shared free tier — use it when you mean it)</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
@@ -359,28 +541,14 @@
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
   // ============================================================
-  // STOPWORDS + tech-term boosting
-  //
-  // v1 was pure frequency: whichever word appeared most in the
-  // JD won a slot in the key-term list, regardless of whether it
-  // was actually meaningful ("understanding", "good",
-  // "communication" all showed up as "missing skills", which is
-  // noise, not signal).
-  //
-  // v2 keeps the same no-backend, no-model approach but adds two
-  // things:
-  //   1. a much bigger filler list -- generic resume/JD language
-  //      (soft-skill nouns, filler verbs, corporate-speak) that
-  //      should never count as a "term to match," no matter how
-  //      often it appears.
-  //   2. a boost multiplier for terms that look technical: known
-  //      tools/languages/frameworks, acronyms (SDK, API, AWS...),
-  //      or tokens containing digits/symbols (c++, node.js, c#).
-  //      Boosted terms outrank frequent-but-generic ones when we
-  //      pick the top N terms AND when we weight the score, so a
-  //      resume missing "webrtc" now hurts the score more than
-  //      one missing "understanding" ever should have.
+  // Your actual Cloudflare Worker URL. This is what POST requests
+  // go to -- NOT GitHub Pages. GitHub Pages only serves static
+  // files (this HTML/CSS/JS); it has no server and cannot receive
+  // POST requests at all. The browser loads this page from GitHub
+  // Pages, then this JS makes a separate cross-origin call to the
+  // Worker below.
   // ============================================================
+  const WORKER_URL = "https://resume-rewriter.vignesh270600.workers.dev";
 
   const STOPWORDS = new Set(`
     a about above after again against all am an and any are aren't as at be
@@ -417,16 +585,10 @@
     conversational
   `.split(/\s+/).filter(Boolean));
 
-  // 2-letter tokens are dropped by default (too much noise otherwise),
-  // except these -- real short tech acronyms that show up constantly
-  // in JDs (CI/CD, QA, AI/ML, UI/UX...).
   const SHORT_ACRONYM_WHITELIST = new Set([
     "ci", "cd", "qa", "ai", "ml", "ui", "ux", "os", "db", "js", "go", "vm",
   ]);
 
-  // Known tools/languages/frameworks -- always weighted up even if they
-  // don't appear often. Not exhaustive; extend this list as you notice
-  // real JDs surfacing tech terms it misses.
   const TECH_BOOST_TERMS = new Set(`
     python java javascript typescript react reactjs angular vue vuejs
     node nodejs express django flask spring rails laravel dotnet aws
@@ -445,13 +607,9 @@
   function tokenize(text) {
     return (text || "")
       .toLowerCase()
-      // '/' now splits tokens (not preserved) so "CI/CD" -> "ci","cd" and
-      // "TestNG/JUnit" -> "testng","junit" instead of merging into one
-      // unmatched token. '.', '+', '#', '-' stay so node.js / c++ / c#
-      // survive intact.
       .replace(/[^a-z0-9+#.\s-]/g, " ")
       .split(/\s+/)
-      .map(w => w.trim().replace(/\.+$/, "")) // strip trailing sentence periods, keep internal ones (node.js)
+      .map(w => w.trim().replace(/\.+$/, ""))
       .filter(w => {
         if (!w || STOPWORDS.has(w) || /^\d+$/.test(w)) return false;
         if (w.length <= 2) return SHORT_ACRONYM_WHITELIST.has(w);
@@ -459,9 +617,6 @@
       });
   }
 
-  // Acronyms (SDK, API, AWS, JWT...) pulled straight from the original,
-  // un-lowercased JD text -- a real signal that a term is a proper
-  // noun/technology, not a common English word.
   function findAcronyms(rawText) {
     const matches = (rawText || "").match(/\b[A-Z]{2,6}\b/g) || [];
     return new Set(matches.map(m => m.toLowerCase()));
@@ -540,7 +695,27 @@
   const missingList = document.getElementById('missingList');
   const customizeBtn = document.getElementById('customizeBtn');
 
+  // Modal elements
+  const customModal = document.getElementById('customModal');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+  const modalLoading = document.getElementById('modalLoading');
+  const aiScoreRow = document.getElementById('aiScoreRow');
+  const aiScoreNum = document.getElementById('aiScoreNum');
+  const aiMissingRow = document.getElementById('aiMissingRow');
+  const revisedLatexOutput = document.getElementById('revisedLatexOutput');
+  const modalFooter = document.getElementById('modalFooter');
+  const copyBtn = document.getElementById('copyBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+
   const CIRCUMFERENCE = 2 * Math.PI * 56;
+  let currentMissingTerms = [];
+
+  // Guards against burning free-tier quota on an unchanged input --
+  // if you click the AI button twice on the exact same resume+JD,
+  // the second click reuses the last result instead of calling the
+  // Worker again.
+  let lastAiCallSignature = null;
+  let lastAiResult = null;
 
   function renderList(el, items) {
     if (items.length === 0) {
@@ -565,6 +740,7 @@
       renderList(matchedList, []);
       renderList(missingList, []);
       customizeBtn.disabled = true;
+      currentMissingTerms = [];
       return;
     }
 
@@ -575,15 +751,16 @@
     dialArc.style.strokeDashoffset = offset;
     dialArc.style.stroke = score >= threshold ? '#3c6e47' : '#8a3b2b';
 
+    currentMissingTerms = missing.map(([term]) => term);
+
     if (score >= threshold) {
-      verdict.textContent = `meets your ${threshold}% target`;
+      verdict.textContent = `meets your ${threshold}% target (instant estimate)`;
       verdict.className = 'verdict pass';
-      customizeBtn.disabled = true;
     } else {
-      verdict.textContent = `below your ${threshold}% target`;
+      verdict.textContent = `below your ${threshold}% target (instant estimate)`;
       verdict.className = 'verdict fail';
-      customizeBtn.disabled = false;
     }
+    customizeBtn.disabled = false;
 
     renderList(matchedList, matched);
     renderList(missingList, missing);
@@ -623,8 +800,88 @@
     recompute();
   });
 
-  customizeBtn.addEventListener('click', () => {
-    alert('Stage 4 not wired up yet — this is where the resume + JD + missing-term list get sent to the Cloudflare Worker for an LLM rewrite.');
+  // Modal actions
+  closeModalBtn.addEventListener('click', () => {
+    customModal.classList.remove('open');
+  });
+
+  function renderAiResult(result) {
+    modalLoading.style.display = 'none';
+
+    if (typeof result.score === 'number') {
+      aiScoreRow.style.display = 'flex';
+      aiScoreNum.textContent = result.score + '%';
+    }
+
+    if (Array.isArray(result.missingSkills) && result.missingSkills.length) {
+      aiMissingRow.style.display = 'block';
+      aiMissingRow.textContent = 'AI-flagged gaps: ' + result.missingSkills.join(', ');
+    }
+
+    revisedLatexOutput.value = result.revisedLatex || '';
+    revisedLatexOutput.style.display = 'block';
+    modalFooter.style.display = 'flex';
+  }
+
+  customizeBtn.addEventListener('click', async () => {
+    const signature = resumeInput.value + '||' + jdInput.value;
+
+    customModal.classList.add('open');
+    aiScoreRow.style.display = 'none';
+    aiMissingRow.style.display = 'none';
+    revisedLatexOutput.style.display = 'none';
+    modalFooter.style.display = 'none';
+
+    // Reuse the last result instead of spending another call on
+    // identical input -- protects the shared free-tier quota.
+    if (signature === lastAiCallSignature && lastAiResult) {
+      renderAiResult(lastAiResult);
+      return;
+    }
+
+    modalLoading.style.display = 'block';
+
+    try {
+      const response = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          latex: resumeInput.value,
+          jobDescription: jdInput.value,
+          missingTerms: currentMissingTerms
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.revisedLatex) {
+        lastAiCallSignature = signature;
+        lastAiResult = data;
+        renderAiResult(data);
+      } else {
+        alert('API Error: ' + (data.details || data.error || 'Failed to get a response'));
+        customModal.classList.remove('open');
+      }
+    } catch (err) {
+      alert('Failed to connect to the Worker: ' + err.message);
+      customModal.classList.remove('open');
+    }
+  });
+
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(revisedLatexOutput.value);
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => { copyBtn.textContent = 'Copy LaTeX'; }, 2000);
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const blob = new Blob([revisedLatexOutput.value], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'revised_resume.tex';
+    a.click();
+    URL.revokeObjectURL(url);
   });
 </script>
 
