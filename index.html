@@ -882,14 +882,14 @@ function renderAiResult(result) {
 
       const data = await response.json();
 
-      if (response.ok && data.revisedLatex) {
-        lastAiCallSignature = signature;
-        lastAiResult = data;
-        renderAiResult(data);
-      } else {
-        alert('API Error: ' + (data.details || data.error || 'Failed to get a response'));
-        customModal.classList.remove('open');
-      }
+ if (response.ok && (data.suggestions || typeof data.score === 'number')) { // ✅ Checks for suggestions or score
+  lastAiCallSignature = signature;
+  lastAiResult = data;
+  renderAiResult(data);
+} else {
+  alert('API Error: ' + (data.details || data.error || 'Failed to parse suggestions from worker'));
+  customModal.classList.remove('open');
+}
     } catch (err) {
       alert('Failed to connect to the Worker: ' + err.message);
       customModal.classList.remove('open');
