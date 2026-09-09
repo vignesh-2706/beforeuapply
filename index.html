@@ -806,8 +806,7 @@
   closeModalBtn.addEventListener('click', () => {
     customModal.classList.remove('open');
   });
-
-  function renderAiResult(result) {
+function renderAiResult(result) {
     modalLoading.style.display = 'none';
 
     if (typeof result.score === 'number') {
@@ -842,6 +841,10 @@
       });
       container.style.display = 'block';
     }
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
   function escapeHtml(str) {
