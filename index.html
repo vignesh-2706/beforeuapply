@@ -513,18 +513,20 @@
       <h2>AI Match Report</h2>
       <button class="modal-close" id="closeModalBtn">&times;</button>
     </div>
-    <div class="modal-body">
+<div class="modal-body">
       <div id="modalLoading" class="loading-spinner">
-        ⚡ Asking the model for a real match score and rewriting bullets...
+        ⚡ Analyzing match score and generating code snippet recommendations...
       </div>
       <div class="ai-score-row" id="aiScoreRow">
         <div class="ai-score-num" id="aiScoreNum">—</div>
         <div>
-          <div class="ai-score-label">AI-judged match score</div>
+          <div class="ai-score-label">AI Match Score</div>
         </div>
       </div>
       <div class="ai-missing-row" id="aiMissingRow"></div>
-      <textarea id="revisedLatexOutput" style="display:none;" readonly></textarea>
+      
+      <!-- Container for targeted suggestions -->
+      <div id="suggestionsContainer" style="display:none; margin-top: 16px;"></div>
     </div>
     <div class="modal-footer" id="modalFooter" style="display:none;">
       <button class="btn-sec" id="copyBtn">Copy LaTeX</button>
@@ -815,12 +817,35 @@
 
     if (Array.isArray(result.missingSkills) && result.missingSkills.length) {
       aiMissingRow.style.display = 'block';
-      aiMissingRow.textContent = 'AI-flagged gaps: ' + result.missingSkills.join(', ');
+      aiMissingRow.textContent = 'Key Gaps: ' + result.missingSkills.join(', ');
     }
 
-    revisedLatexOutput.value = result.revisedLatex || '';
-    revisedLatexOutput.style.display = 'block';
-    modalFooter.style.display = 'flex';
+    const container = document.getElementById('suggestionsContainer');
+    container.innerHTML = '';
+    
+    if (Array.isArray(result.suggestions) && result.suggestions.length > 0) {
+      result.suggestions.forEach((sug, idx) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'border:1px solid var(--paper-line); background:#fffdf8; padding:12px; margin-bottom:12px; font-family:var(--mono); font-size:12px;';
+        
+        item.innerHTML = `
+          <div style="font-weight:bold; color:var(--stamp); margin-bottom:4px;">
+            ${idx + 1}. [${sug.section || 'General'}] Improvement Suggestion
+          </div>
+          <div style="margin-bottom:8px; color:var(--ink);">${sug.reason || ''}</div>
+          ${sug.codeSnippet ? `
+            <div style="font-size:11px; color:var(--ink-soft); margin-bottom:2px;">Suggested snippet to add:</div>
+            <pre style="background:var(--paper); padding:8px; border:1px solid var(--paper-line); overflow-x:auto; margin:0; font-family:var(--mono);">${escapeHtml(sug.codeSnippet)}</pre>
+          ` : ''}
+        `;
+        container.appendChild(item);
+      });
+      container.style.display = 'block';
+    }
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
   customizeBtn.addEventListener('click', async () => {
