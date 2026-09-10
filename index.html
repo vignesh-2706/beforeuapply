@@ -188,28 +188,36 @@
     updateButtonState();
   });
 
-  checkBtn.addEventListener('click', async () => {
-    resultModal.classList.add('open');
-    loadingSpinner.style.display = 'block';
-    resultsContent.style.display = 'none';
-    errorMessage.style.display = 'none';
-    startTypingQuotes();
+checkBtn.addEventListener('click', async () => {
+  resultModal.classList.add('open');
+  loadingSpinner.style.display = 'block';
+  resultsContent.style.display = 'none';
+  errorMessage.style.display = 'none';
+  startTypingQuotes();
 
-    try {
-      const response = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          latex: resumeInput.value,
-          jobDescription: jdInput.value,
-        }),
-      });
+  // Clean and optimize inputs to save tokens
+  const rawResume = resumeInput.value;
+  const processedResume = rawResume.includes('\\') 
+    ? cleanLatex(rawResume) 
+    : compressText(rawResume);
+
+  const processedJD = cleanJobDescription(jdInput.value);
+
+  try {
+    const response = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        latex: processedResume,
+        jobDescription: processedJD,
+      }),
+    });
 
       const data = await response.json();
 
-      if (!response.ok || !data.score) {
-        throw new Error(data.error || 'Failed to get analysis');
-      }
+     if (!response.ok || data.score === undefined || data.score === null) {
+  throw new Error(data.error || 'Failed to get analysis');
+}
 
       stopTypingQuotes();
       loadingSpinner.style.display = 'none';
@@ -264,6 +272,55 @@
   });
 
   updateButtonState();
+
+  // Clean general text input (Resume & Job Description)
+function compressText(text) {
+  return text
+    // Replace 3 or more consecutive newlines with a single newline
+    .replace(/\n{3,}/g, '\n')
+    // Replace multiple horizontal spaces/tabs with a single space
+    .replace(/[ \t]+/g, ' ')
+    // Remove leading/trailing whitespace on each line
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join('\n');
+}
+
+// Strip non-essential fluff from Job Descriptions
+function cleanJobDescription(jdText) {
+  let cleaned = compressText(jdText);
+  
+  // Cut off boilerplate sections that don't affect match scoring
+  const boilerplateTriggers = [
+    /equal opportunity employer/i,
+    /about our company/i,
+    /benefits & perks/i,
+    /we offer competitive compensation/i
+  ];
+
+  for (const trigger of boilerplateTriggers) {
+    const matchIndex = cleaned.search(trigger);
+    if (matchIndex !== -1) {
+      cleaned = cleaned.substring(0, matchIndex);
+      break;
+    }
+  }
+
+  return cleaned.trim();
+}
+
+// Strip non-essential LaTeX commands if LaTeX is pasted
+function cleanLatex(latexText) {
+  let cleaned = latexText
+    // Remove LaTeX comments (% comment)
+    .replace(/%.*/g, '')
+    // Remove common non-text formatting commands
+    .replace(/\\(vspace|hspace|clearpage|newpage|pagebreak)\{[^}]*\}/g, '')
+    .replace(/\\(fontsize|selectfont|geometry)\{[^}]*\}/g, '');
+
+  return compressText(cleaned);
+}
 </script>
 
 </body>
