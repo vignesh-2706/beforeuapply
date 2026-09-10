@@ -212,7 +212,24 @@
     border-radius: 12px;
     margin-bottom: 28px;
   }
+.reason-box {
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 4px solid #3b82f6;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
 
+.reason-box.strong {
+  background: rgba(16, 185, 129, 0.1);
+  border-left-color: #10b981;
+}
+
+.reason-text {
+  font-size: 14px;
+  color: #cbd5e1;
+}
   .score-number {
     font-size: 64px;
     font-weight: 700;
@@ -379,18 +396,21 @@
 
       <div class="error-message" id="errorMessage"></div>
 
-      <div id="resultsContent" style="display: none;">
-        <div class="score-display">
-          <div class="score-number" id="scoreNumber">—</div>
-          <div class="score-label" id="scoreLabel">Match Score</div>
-        </div>
+     <div id="resultsContent" style="display: none;">
+  <div class="score-display">
+    <div class="score-number" id="scoreNumber">—</div>
+    <div class="score-label" id="scoreLabel">Match Score</div>
+  </div>
 
-        <div id="suggestionsContainer" class="suggestions-container"></div>
-        <div class="no-suggestions" id="noSuggestions" style="display: none;">
-          ✓ Your resume is already well-matched! No additional suggestions needed.
-        </div>
-      </div>
-    </div>
+  <div class="reason-box" id="reasonBox">
+    <div class="reason-text" id="reasonText"></div>
+  </div>
+
+  <div id="suggestionsContainer" class="suggestions-container"></div>
+  <div class="no-suggestions" id="noSuggestions" style="display: none;">
+    ✓ Your resume is already well-matched! No additional suggestions needed.
+  </div>
+</div>
   </div>
 </div>
 
@@ -483,22 +503,30 @@
       scoreNumber.textContent = data.score + '%';
       scoreLabel.textContent = data.score >= 80 ? '✓ Strong Match' : 'Match Score';
       scoreLabel.style.color = data.score >= 80 ? '#10b981' : '#cbd5e1';
+// Display reason
+const reasonBox = document.getElementById('reasonBox');
+if (isStrong) {
+  reasonBox.classList.add('strong');
+} else {
+  reasonBox.classList.remove('strong');
+}
+document.getElementById('reasonText').textContent = data.reason || 'No analysis available.';
 
-      // Display suggestions
-      if (data.suggestions && data.suggestions.length > 0) {
-        noSuggestions.style.display = 'none';
-        suggestionsContainer.innerHTML = data.suggestions.map((s, i) => `
-          <div class="suggestion-card ${data.score >= 80 ? 'high-score' : ''}">
-            <div class="suggestion-title">${i + 1}. ${s.title}</div>
-            <div class="suggestion-reason">${s.reason}</div>
-            <div class="suggestion-location">📍 ${s.location}</div>
-            <div class="suggestion-snippet">${s.snippet}</div>
-          </div>
-        `).join('');
-      } else {
-        noSuggestions.style.display = 'block';
-        suggestionsContainer.innerHTML = '';
-      }
+// Display suggestions
+if (data.suggestions && data.suggestions.length > 0) {
+  noSuggestions.style.display = 'none';
+  suggestionsContainer.innerHTML = data.suggestions.map((s, i) => `
+    <div class="suggestion-card ${isStrong ? 'high-score' : ''}">
+      <div class="suggestion-title">${i + 1}. ${s.title}</div>
+      <div class="suggestion-reason">${s.reason}</div>
+      <div class="suggestion-location">📍 ${s.location}</div>
+      <div class="suggestion-snippet">${s.snippet}</div>
+    </div>
+  `).join('');
+} else {
+  noSuggestions.style.display = 'block';
+  suggestionsContainer.innerHTML = '';
+}
     } catch (err) {
       loadingSpinner.style.display = 'none';
       errorMessage.style.display = 'block';
