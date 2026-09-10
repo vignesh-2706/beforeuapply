@@ -1,16 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>before U apply — check your resume match</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>before U apply — check your resume match</title>
+    <link rel="icon" type="image" href="pictures.png">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <header>
   <h1>before U <u>apply</u></h1>
   <p>Paste your resume and a job description. We'll score how well they match and suggest exactly what to add or change to improve your chances.</p>
+  <div class="usage-counter">
+    <span id="usageCount">0</span> friends have used this
+  </div>
 </header>
 
 <main>
@@ -37,9 +41,35 @@
       <button class="btn-primary" id="checkBtn" disabled>Check Score & Get Suggestions</button>
     </div>
   </div>
+
+  <div class="card feedback-card">
+    <div class="feedback-header">
+      <h3>Love it? Have feedback?</h3>
+      <p>Help us make beforeuapply better</p>
+    </div>
+
+    <div class="feedback-form">
+      <div class="feedback-input-group">
+        <label for="feedbackEmail">Your Email</label>
+        <input type="email" id="feedbackEmail" placeholder="your.email@example.com" />
+      </div>
+
+      <div class="feedback-input-group">
+        <label for="feedbackText">Your Feedback</label>
+        <textarea id="feedbackText" placeholder="What did you like? What could be better?" rows="4"></textarea>
+      </div>
+
+      <div class="feedback-actions">
+        <button class="btn-like" id="likeBtn">👍 I love this</button>
+        <button class="btn-feedback" id="sendFeedbackBtn">Send Feedback</button>
+      </div>
+
+      <div class="feedback-status" id="feedbackStatus" style="display: none;"></div>
+    </div>
+  </div>
 </main>
 
-<!-- Modal -->
+<!-- Result Modal -->
 <div class="modal-overlay" id="resultModal">
   <div class="modal">
     <div class="modal-header">
@@ -64,9 +94,11 @@
           <div class="score-label" id="scoreLabel">Match Score</div>
         </div>
 
-        <div class="reason-box" id="reasonBox">
-          <div class="reason-heading">Reason</div>
-          <div class="reason-text" id="reasonText"></div>
+        <div class="reason-section">
+          <div class="reason-heading">Why This Score</div>
+          <div class="reason-box" id="reasonBox">
+            <div class="reason-text" id="reasonText"></div>
+          </div>
         </div>
 
         <div id="suggestionsContainer" class="suggestions-container"></div>
@@ -75,6 +107,17 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Admin Panel Modal -->
+<div class="modal-overlay" id="adminModal" style="display: none;">
+  <div class="modal" style="max-width: 600px; color: #333; background: #fff;">
+    <div class="modal-header" style="border-bottom: 1px solid #ddd;">
+      <h2 style="color: #222;">📊 Admin Panel</h2>
+      <button class="modal-close" id="closeAdminBtn" onclick="closeAdminPanel()">&times;</button>
+    </div>
+    <div class="modal-body" id="adminModalBody" style="padding: 20px;"></div>
   </div>
 </div>
 
@@ -97,119 +140,49 @@
     "Uncovering hidden matches in your experience..."
   ];
 
-  let typingTimeout;
-  let quoteIndex = 0;
-  let charIndex = 0;
-  let isDeleting = false;
-
-  function typeQuotes() {
-    const currentQuote = quotes[quoteIndex];
-    const typingElement = document.getElementById('typingQuote');
-    
-    if (!typingElement) return;
-
-    if (isDeleting) {
-      typingElement.textContent = currentQuote.substring(0, charIndex - 1);
-      charIndex--;
-    } else {
-      typingElement.textContent = currentQuote.substring(0, charIndex + 1);
-      charIndex++;
-    }
-
-    let typeSpeed = isDeleting ? 30 : 60;
-
-    if (!isDeleting && charIndex === currentQuote.length) {
-      typeSpeed = 1500;
-      isDeleting = true;
-    } else if (isDeleting && charIndex === 0) {
-      isDeleting = false;
-      quoteIndex = (quoteIndex + 1) % quotes.length;
-      typeSpeed = 400;
-    }
-
-    typingTimeout = setTimeout(typeQuotes, typeSpeed);
-  }
-
-  function startTypingQuotes() {
-    quoteIndex = 0;
-    charIndex = 0;
-    isDeleting = false;
-    clearTimeout(typingTimeout);
-    typeQuotes();
-  }
-
-  function stopTypingQuotes() {
-    clearTimeout(typingTimeout);
-  }
-
-  function sanitizeSuggestion(suggestion) {
-    // Remove newline escapes and JSON artifacts
-    const clean = (str) => {
-      if (!str) return '';
-      return String(str)
-        .replace(/\\n/g, ' ')
-        .replace(/\\r/g, ' ')
-        .replace(/\\"/g, '"')
-        .replace(/[{}\[\],":]/g, '') // Remove JSON artifacts
-        .trim();
-    };
-
-    return {
-      title: clean(suggestion.title).substring(0, 100) || 'Resume Improvement',
-      reason: clean(suggestion.reason).substring(0, 200) || 'Improves match with job requirements.',
-      location: clean(suggestion.location).substring(0, 100) || 'Resume section',
-      snippet: clean(suggestion.snippet).substring(0, 250) || suggestion.title,
-    };
-  }
-
-  function escapeHtml(text) {
-    if (!text) return '';
-    return text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
-  function compressText(text) {
-    return text
-      .replace(/\r/g, '')
-      .replace(/\n{3,}/g, '\n')
-      .replace(/[ \t]+/g, ' ')
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .join('\n');
-  }
-
-  function cleanJobDescription(jdText) {
-    let cleaned = compressText(jdText);
-    const boilerplateTriggers = [
-      /equal opportunity employer/i,
-      /about our company/i,
-      /benefits & perks/i,
-      /we offer competitive compensation/i
+  function extractPersonName(resumeText) {
+    const namePatterns = [
+      /^([A-Z][a-z]+\s+[A-Z][a-z]+)/m,
+      /^([\w\s]{2,40})\n/m,
+      /NAME:\s*([^\n]+)/i,
     ];
 
-    for (const trigger of boilerplateTriggers) {
-      const matchIndex = cleaned.search(trigger);
-      if (matchIndex !== -1) {
-        cleaned = cleaned.substring(0, matchIndex);
-        break;
+    for (const pattern of namePatterns) {
+      const match = resumeText.match(pattern);
+      if (match) {
+        return (match[2] || match[1]).trim();
       }
     }
-
-    return cleaned.trim();
+    return "Anonymous";
   }
 
-  function cleanLatex(latexText) {
-    let cleaned = latexText
-      .replace(/%.*/g, '')
-      .replace(/\\(vspace|hspace|clearpage|newpage|pagebreak)\{[^}]*\}/g, '')
-      .replace(/\\(fontsize|selectfont|geometry)\{[^}]*\}/g, '');
+  let typingInterval = null;
 
-    return compressText(cleaned);
+  function typeQuote() {
+    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+    const typingQuote = document.getElementById('typingQuote');
+    typingQuote.textContent = '';
+    let index = 0;
+
+    if (typingInterval) clearInterval(typingInterval);
+
+    typingInterval = setInterval(() => {
+      if (index < randomQuote.length) {
+        typingQuote.textContent += randomQuote[index];
+        index++;
+      } else {
+        clearInterval(typingInterval);
+      }
+    }, 40);
+  }
+
+  function stopTyping() {
+    if (typingInterval) clearInterval(typingInterval);
+  }
+
+  function updateUsageCounter() {
+    const analytics = JSON.parse(localStorage.getItem('beforeuapply_analytics') || '[]');
+    document.getElementById('usageCount').textContent = analytics.length;
   }
 
   const resumeInput = document.getElementById('resumeInput');
@@ -226,6 +199,13 @@
   const scoreLabel = document.getElementById('scoreLabel');
   const suggestionsContainer = document.getElementById('suggestionsContainer');
   const noSuggestions = document.getElementById('noSuggestions');
+  const feedbackEmail = document.getElementById('feedbackEmail');
+  const feedbackText = document.getElementById('feedbackText');
+  const likeBtn = document.getElementById('likeBtn');
+  const sendFeedbackBtn = document.getElementById('sendFeedbackBtn');
+  const feedbackStatus = document.getElementById('feedbackStatus');
+
+  let isLiked = false;
 
   function updateButtonState() {
     checkBtn.disabled = !resumeInput.value.trim() || !jdInput.value.trim();
@@ -259,43 +239,49 @@
   });
 
   checkBtn.addEventListener('click', async () => {
+    const personName = extractPersonName(resumeInput.value);
+    const timestamp = new Date().toLocaleString();
+    
+    let analytics = JSON.parse(localStorage.getItem('beforeuapply_analytics') || '[]');
+    analytics.push({
+      name: personName,
+      timestamp: timestamp,
+      score: null,
+      jdPreview: jdInput.value.substring(0, 50) + '...'
+    });
+    localStorage.setItem('beforeuapply_analytics', JSON.stringify(analytics));
+    updateUsageCounter();
+
     resultModal.classList.add('open');
     loadingSpinner.style.display = 'block';
     resultsContent.style.display = 'none';
     errorMessage.style.display = 'none';
-    startTypingQuotes();
-
-    const rawResume = resumeInput.value;
-    const processedResume = rawResume.includes('\\') 
-      ? cleanLatex(rawResume) 
-      : compressText(rawResume);
-
-    const processedJD = cleanJobDescription(jdInput.value);
+    typeQuote();
 
     try {
       const response = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          latex: processedResume,
-          jobDescription: processedJD,
+          latex: resumeInput.value,
+          jobDescription: jdInput.value,
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok || data.score === undefined || data.score === null) {
+      if (!response.ok || data.score === undefined) {
         throw new Error(data.error || 'Failed to get analysis');
       }
 
-      stopTypingQuotes();
+      stopTyping();
       loadingSpinner.style.display = 'none';
       resultsContent.style.display = 'block';
 
       scoreNumber.textContent = data.score + '%';
       const isStrong = data.score >= 80;
       scoreLabel.textContent = isStrong ? '✓ Strong Match' : 'Match Score';
-      scoreLabel.style.color = isStrong ? '#38bdf8' : '#e2e8f0';
+      scoreLabel.style.color = isStrong ? '#3d8f5d' : '#a8c5de';
 
       const reasonBox = document.getElementById('reasonBox');
       if (isStrong) {
@@ -307,52 +293,194 @@
 
       if (data.suggestions && data.suggestions.length > 0) {
         noSuggestions.style.display = 'none';
-        suggestionsContainer.innerHTML = data.suggestions.map((rawSuggestion, i) => {
-          const s = sanitizeSuggestion(rawSuggestion);
-          return `
-            <div class="suggestion-card ${isStrong ? 'high-score' : ''}">
-              <div class="suggestion-title">${i + 1}. ${escapeHtml(s.title)}</div>
-              <div class="suggestion-reason">${escapeHtml(s.reason)}</div>
-              <div class="suggestion-location">📍 ${escapeHtml(s.location)}</div>
-              <div class="suggestion-snippet">${escapeHtml(s.snippet)}</div>
-            </div>
-          `;
-        }).join('');
+        suggestionsContainer.innerHTML = data.suggestions.map((s, i) => `
+          <div class="suggestion-card ${isStrong ? 'high-score' : ''}">
+            <div class="suggestion-title">${i + 1}. ${s.title}</div>
+            <div class="suggestion-reason">${s.reason}</div>
+            <div class="suggestion-location">📍 ${s.location}</div>
+            <div class="suggestion-snippet">${s.snippet}</div>
+          </div>
+        `).join('');
       } else {
         noSuggestions.style.display = 'block';
         suggestionsContainer.innerHTML = '';
       }
+
+      analytics[analytics.length - 1].score = data.score;
+      localStorage.setItem('beforeuapply_analytics', JSON.stringify(analytics));
+
     } catch (err) {
-      stopTypingQuotes();
+      stopTyping();
       loadingSpinner.style.display = 'none';
       errorMessage.style.display = 'block';
-      
-      let errorText = err.message;
-      if (errorText.includes('Failed to get analysis')) {
-        errorText = 'Analysis service unavailable. Please try again in a moment.';
-      } else if (errorText.includes('Empty response')) {
-        errorText = 'The AI model returned an empty response. Please try again.';
-      }
-      
-      errorMessage.textContent = '❌ ' + errorText;
+      errorMessage.textContent = '❌ ' + err.message;
       resultsContent.style.display = 'block';
     }
   });
 
   closeModalBtn.addEventListener('click', () => {
     resultModal.classList.remove('open');
-    stopTypingQuotes();
+    stopTyping();
   });
 
   resultModal.addEventListener('click', (e) => {
     if (e.target === resultModal) {
       resultModal.classList.remove('open');
-      stopTypingQuotes();
+      stopTyping();
     }
   });
 
-  updateButtonState();
-</script>
+  // Feedback
+  likeBtn.addEventListener('click', () => {
+    isLiked = !isLiked;
+    likeBtn.classList.toggle('liked');
+    likeBtn.textContent = isLiked ? '👍 Loved it!' : '👍 I love this';
+  });
 
+  sendFeedbackBtn.addEventListener('click', () => {
+    const email = feedbackEmail.value.trim();
+    const text = feedbackText.value.trim();
+
+    if (!email || !email.includes('@')) {
+      feedbackStatus.textContent = 'Please enter a valid email';
+      feedbackStatus.className = 'feedback-status error';
+      feedbackStatus.style.display = 'block';
+      return;
+    }
+
+    if (!text && !isLiked) {
+      feedbackStatus.textContent = 'Please add feedback or click like';
+      feedbackStatus.className = 'feedback-status error';
+      feedbackStatus.style.display = 'block';
+      return;
+    }
+
+    let feedback = JSON.parse(localStorage.getItem('beforeuapply_feedback') || '[]');
+    feedback.push({
+      email: email,
+      text: text,
+      liked: isLiked,
+      timestamp: new Date().toLocaleString(),
+    });
+    localStorage.setItem('beforeuapply_feedback', JSON.stringify(feedback));
+
+    feedbackEmail.value = '';
+    feedbackText.value = '';
+    isLiked = false;
+    likeBtn.classList.remove('liked');
+    likeBtn.textContent = '👍 I love this';
+
+    feedbackStatus.textContent = '✓ Thanks for your feedback!';
+    feedbackStatus.className = 'feedback-status success';
+    feedbackStatus.style.display = 'block';
+    setTimeout(() => {
+      feedbackStatus.style.display = 'none';
+    }, 3000);
+  });
+
+  // Admin Export Functions
+  function exportAnalytics() {
+    const analytics = JSON.parse(localStorage.getItem('beforeuapply_analytics') || '[]');
+    if (analytics.length === 0) {
+      alert('No analytics data to export.');
+      return;
+    }
+
+    let csv = 'Name,Timestamp,Score,Job Preview\n';
+    analytics.forEach(entry => {
+      const score = entry.score !== null ? entry.score + '%' : '—';
+      const preview = (entry.jdPreview || '').replace(/"/g, '""');
+      csv += `"${entry.name}","${entry.timestamp}","${score}","${preview}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `beforeuapply-analytics-${new Date().toISOString().split('T')[0]}.csv`);
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportFeedback() {
+    const feedback = JSON.parse(localStorage.getItem('beforeuapply_feedback') || '[]');
+    if (feedback.length === 0) {
+      alert('No feedback to export.');
+      return;
+    }
+
+    let csv = 'Email,Feedback,Liked,Timestamp\n';
+    feedback.forEach(entry => {
+      const feedbackText = (entry.text || '').replace(/"/g, '""').replace(/\n/g, ' ');
+      csv += `"${entry.email}","${feedbackText}","${entry.liked ? 'Yes' : 'No'}","${entry.timestamp}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `beforeuapply-feedback-${new Date().toISOString().split('T')[0]}.csv`);
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Admin Panel UI & Keybind
+  function openAdminPanel() {
+    const analytics = JSON.parse(localStorage.getItem('beforeuapply_analytics') || '[]');
+    const feedback = JSON.parse(localStorage.getItem('beforeuapply_feedback') || '[]');
+
+    const adminContent = `
+      <p><strong>Total Checks:</strong> ${analytics.length}</p>
+      <p><strong>Total Feedback:</strong> ${feedback.length}</p>
+
+      <h4 style="margin-top: 15px;">Recent Checks</h4>
+      <div style="max-height: 200px; overflow-y: auto;">
+        <table style="width:100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+          <thead>
+            <tr style="background: #f0f0f0;">
+              <th style="padding: 8px;">Name</th>
+              <th style="padding: 8px;">Time</th>
+              <th style="padding: 8px;">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${analytics.slice(-10).reverse().map(a => `
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 8px;">${a.name}</td>
+                <td style="padding: 8px; font-size: 11px;">${a.timestamp}</td>
+                <td style="padding: 8px; font-weight: bold;">${a.score !== null ? a.score + '%' : '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 20px; display: flex; gap: 10px;">
+        <button onclick="exportAnalytics()" style="padding: 10px 15px; background: #4f81bd; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">📥 Export Analytics</button>
+        <button onclick="exportFeedback()" style="padding: 10px 15px; background: #3d8f5d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">📥 Export Feedback</button>
+      </div>
+    `;
+
+    document.getElementById('adminModalBody').innerHTML = adminContent;
+    document.getElementById('adminModal').style.display = 'flex';
+  }
+
+  function closeAdminPanel() {
+    document.getElementById('adminModal').style.display = 'none';
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+      e.preventDefault();
+      openAdminPanel();
+    }
+  });
+
+  window.exportAnalytics = exportAnalytics;
+  window.exportFeedback = exportFeedback;
+
+  updateButtonState();
+  updateUsageCounter();
+</script>
 </body>
 </html>
