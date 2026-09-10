@@ -499,10 +499,12 @@
       loadingSpinner.style.display = 'none';
       resultsContent.style.display = 'block';
 
-      // Display score
-      scoreNumber.textContent = data.score + '%';
-      scoreLabel.textContent = data.score >= 80 ? '✓ Strong Match' : 'Match Score';
-      scoreLabel.style.color = data.score >= 80 ? '#10b981' : '#cbd5e1';
+   // Display score
+scoreNumber.textContent = data.score + '%';
+const isStrong = data.score >= 80;  // ✅ ADD THIS LINE
+scoreLabel.textContent = isStrong ? '✓ Strong Match' : 'Match Score';
+scoreLabel.style.color = isStrong ? '#10b981' : '#cbd5e1';
+
 // Display reason
 const reasonBox = document.getElementById('reasonBox');
 if (isStrong) {
@@ -511,7 +513,6 @@ if (isStrong) {
   reasonBox.classList.remove('strong');
 }
 document.getElementById('reasonText').textContent = data.reason || 'No analysis available.';
-
 // Display suggestions
 if (data.suggestions && data.suggestions.length > 0) {
   noSuggestions.style.display = 'none';
