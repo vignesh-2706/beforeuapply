@@ -9,7 +9,7 @@
 <body>
 
 <header>
-  <h1>before U apply</u></h1>
+  <h1>before U <u>apply</u></h1>
   <p>Paste your resume and a job description. We'll score how well they match and suggest exactly what to add or change to improve your chances.</p>
 </header>
 
@@ -142,6 +142,76 @@
     clearTimeout(typingTimeout);
   }
 
+  function sanitizeSuggestion(suggestion) {
+    // Remove newline escapes and JSON artifacts
+    const clean = (str) => {
+      if (!str) return '';
+      return String(str)
+        .replace(/\\n/g, ' ')
+        .replace(/\\r/g, ' ')
+        .replace(/\\"/g, '"')
+        .replace(/[{}\[\],":]/g, '') // Remove JSON artifacts
+        .trim();
+    };
+
+    return {
+      title: clean(suggestion.title).substring(0, 100) || 'Resume Improvement',
+      reason: clean(suggestion.reason).substring(0, 200) || 'Improves match with job requirements.',
+      location: clean(suggestion.location).substring(0, 100) || 'Resume section',
+      snippet: clean(suggestion.snippet).substring(0, 250) || suggestion.title,
+    };
+  }
+
+  function escapeHtml(text) {
+    if (!text) return '';
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function compressText(text) {
+    return text
+      .replace(/\r/g, '')
+      .replace(/\n{3,}/g, '\n')
+      .replace(/[ \t]+/g, ' ')
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .join('\n');
+  }
+
+  function cleanJobDescription(jdText) {
+    let cleaned = compressText(jdText);
+    const boilerplateTriggers = [
+      /equal opportunity employer/i,
+      /about our company/i,
+      /benefits & perks/i,
+      /we offer competitive compensation/i
+    ];
+
+    for (const trigger of boilerplateTriggers) {
+      const matchIndex = cleaned.search(trigger);
+      if (matchIndex !== -1) {
+        cleaned = cleaned.substring(0, matchIndex);
+        break;
+      }
+    }
+
+    return cleaned.trim();
+  }
+
+  function cleanLatex(latexText) {
+    let cleaned = latexText
+      .replace(/%.*/g, '')
+      .replace(/\\(vspace|hspace|clearpage|newpage|pagebreak)\{[^}]*\}/g, '')
+      .replace(/\\(fontsize|selectfont|geometry)\{[^}]*\}/g, '');
+
+    return compressText(cleaned);
+  }
+
   const resumeInput = document.getElementById('resumeInput');
   const jdInput = document.getElementById('jdInput');
   const resumeFile = document.getElementById('resumeFile');
@@ -188,36 +258,35 @@
     updateButtonState();
   });
 
-checkBtn.addEventListener('click', async () => {
-  resultModal.classList.add('open');
-  loadingSpinner.style.display = 'block';
-  resultsContent.style.display = 'none';
-  errorMessage.style.display = 'none';
-  startTypingQuotes();
+  checkBtn.addEventListener('click', async () => {
+    resultModal.classList.add('open');
+    loadingSpinner.style.display = 'block';
+    resultsContent.style.display = 'none';
+    errorMessage.style.display = 'none';
+    startTypingQuotes();
 
-  // Clean and optimize inputs to save tokens
-  const rawResume = resumeInput.value;
-  const processedResume = rawResume.includes('\\') 
-    ? cleanLatex(rawResume) 
-    : compressText(rawResume);
+    const rawResume = resumeInput.value;
+    const processedResume = rawResume.includes('\\') 
+      ? cleanLatex(rawResume) 
+      : compressText(rawResume);
 
-  const processedJD = cleanJobDescription(jdInput.value);
+    const processedJD = cleanJobDescription(jdInput.value);
 
-  try {
-    const response = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        latex: processedResume,
-        jobDescription: processedJD,
-      }),
-    });
+    try {
+      const response = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          latex: processedResume,
+          jobDescription: processedJD,
+        }),
+      });
 
       const data = await response.json();
 
-     if (!response.ok || data.score === undefined || data.score === null) {
-  throw new Error(data.error || 'Failed to get analysis');
-}
+      if (!response.ok || data.score === undefined || data.score === null) {
+        throw new Error(data.error || 'Failed to get analysis');
+      }
 
       stopTypingQuotes();
       loadingSpinner.style.display = 'none';
@@ -238,14 +307,17 @@ checkBtn.addEventListener('click', async () => {
 
       if (data.suggestions && data.suggestions.length > 0) {
         noSuggestions.style.display = 'none';
-        suggestionsContainer.innerHTML = data.suggestions.map((s, i) => `
-          <div class="suggestion-card ${isStrong ? 'high-score' : ''}">
-            <div class="suggestion-title">${i + 1}. ${s.title}</div>
-            <div class="suggestion-reason">${s.reason}</div>
-            <div class="suggestion-location">📍 ${s.location}</div>
-            <div class="suggestion-snippet">${s.snippet}</div>
-          </div>
-        `).join('');
+        suggestionsContainer.innerHTML = data.suggestions.map((rawSuggestion, i) => {
+          const s = sanitizeSuggestion(rawSuggestion);
+          return `
+            <div class="suggestion-card ${isStrong ? 'high-score' : ''}">
+              <div class="suggestion-title">${i + 1}. ${escapeHtml(s.title)}</div>
+              <div class="suggestion-reason">${escapeHtml(s.reason)}</div>
+              <div class="suggestion-location">📍 ${escapeHtml(s.location)}</div>
+              <div class="suggestion-snippet">${escapeHtml(s.snippet)}</div>
+            </div>
+          `;
+        }).join('');
       } else {
         noSuggestions.style.display = 'block';
         suggestionsContainer.innerHTML = '';
@@ -254,7 +326,15 @@ checkBtn.addEventListener('click', async () => {
       stopTypingQuotes();
       loadingSpinner.style.display = 'none';
       errorMessage.style.display = 'block';
-      errorMessage.textContent = '❌ ' + err.message;
+      
+      let errorText = err.message;
+      if (errorText.includes('Failed to get analysis')) {
+        errorText = 'Analysis service unavailable. Please try again in a moment.';
+      } else if (errorText.includes('Empty response')) {
+        errorText = 'The AI model returned an empty response. Please try again.';
+      }
+      
+      errorMessage.textContent = '❌ ' + errorText;
       resultsContent.style.display = 'block';
     }
   });
@@ -272,55 +352,6 @@ checkBtn.addEventListener('click', async () => {
   });
 
   updateButtonState();
-
-  // Clean general text input (Resume & Job Description)
-function compressText(text) {
-  return text
-    // Replace 3 or more consecutive newlines with a single newline
-    .replace(/\n{3,}/g, '\n')
-    // Replace multiple horizontal spaces/tabs with a single space
-    .replace(/[ \t]+/g, ' ')
-    // Remove leading/trailing whitespace on each line
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0)
-    .join('\n');
-}
-
-// Strip non-essential fluff from Job Descriptions
-function cleanJobDescription(jdText) {
-  let cleaned = compressText(jdText);
-  
-  // Cut off boilerplate sections that don't affect match scoring
-  const boilerplateTriggers = [
-    /equal opportunity employer/i,
-    /about our company/i,
-    /benefits & perks/i,
-    /we offer competitive compensation/i
-  ];
-
-  for (const trigger of boilerplateTriggers) {
-    const matchIndex = cleaned.search(trigger);
-    if (matchIndex !== -1) {
-      cleaned = cleaned.substring(0, matchIndex);
-      break;
-    }
-  }
-
-  return cleaned.trim();
-}
-
-// Strip non-essential LaTeX commands if LaTeX is pasted
-function cleanLatex(latexText) {
-  let cleaned = latexText
-    // Remove LaTeX comments (% comment)
-    .replace(/%.*/g, '')
-    // Remove common non-text formatting commands
-    .replace(/\\(vspace|hspace|clearpage|newpage|pagebreak)\{[^}]*\}/g, '')
-    .replace(/\\(fontsize|selectfont|geometry)\{[^}]*\}/g, '');
-
-  return compressText(cleaned);
-}
 </script>
 
 </body>
