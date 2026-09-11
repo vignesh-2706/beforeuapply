@@ -12,9 +12,9 @@
 <header>
   <h1>before U <u>apply</u></h1>
   <p>Paste your resume and a job description. We'll score how well they match and suggest exactly what to add or change to improve your chances.</p>
-  <!-- <div class="usage-counter">
+  <div class="usage-counter">
     <span id="usageCount">0</span> friends have used this
-  </div> -->
+  </div>
 </header>
 
 <main>
@@ -180,10 +180,10 @@
     if (typingInterval) clearInterval(typingInterval);
   }
 
-  function updateUsageCounter() {
-    const analytics = JSON.parse(localStorage.getItem('beforeuapply_analytics') || '[]');
-    document.getElementById('usageCount').textContent = analytics.length;
-  }
+  // function updateUsageCounter() {
+  //   const analytics = JSON.parse(localStorage.getItem('beforeuapply_analytics') || '[]');
+  //   document.getElementById('usageCount').textContent = analytics.length;
+  // }
 
   const resumeInput = document.getElementById('resumeInput');
   const jdInput = document.getElementById('jdInput');
@@ -250,7 +250,7 @@
       jdPreview: jdInput.value.substring(0, 50) + '...'
     });
     localStorage.setItem('beforeuapply_analytics', JSON.stringify(analytics));
-    updateUsageCounter();
+    // updateUsageCounter();
 
     resultModal.classList.add('open');
     loadingSpinner.style.display = 'block';
@@ -480,7 +480,7 @@
   window.exportFeedback = exportFeedback;
 
   updateButtonState();
-  updateUsageCounter();
+  // updateUsageCounter();
 </script>
 </body>
 </html>
